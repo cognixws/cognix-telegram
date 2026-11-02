@@ -130,6 +130,7 @@ export class Ledger {
     if (!Number.isSafeInteger(id) || !assistant) return;
     this.db.prepare("INSERT INTO threads(thread_id,assistant,slug,created_at) VALUES(?,?,'',?) ON CONFLICT(thread_id) DO NOTHING").run(id, assistant, this.now());
   }
+  waitThread(id) { if (Number.isSafeInteger(id)) this.db.prepare("UPDATE threads SET slug='' WHERE thread_id=?").run(id); }
   forgetThread(id) { if (Number.isSafeInteger(id)) this.db.prepare('DELETE FROM threads WHERE thread_id=?').run(id); }
   bindInputThread(messageID, thread) {
     if (!messageID || !Number.isSafeInteger(thread)) return;

@@ -370,6 +370,36 @@ test('a chat topic Telegram named from its text takes the topic the core placed 
  assert.equal(f.ledger.thread(63).slug,'budget');
 });
 
+test('a chat topic whose mark the core refused follows the routed answer',async t=>{
+ const f=await fixture(t,{topics:true});f.select('assistant');
+ const lastInput=()=>f.ledger.db.prepare('SELECT message_id FROM input_threads ORDER BY rowid DESC LIMIT 1').get().message_id;
+ const edits=()=>f.provider.filter(p=>p.method==='editForumTopic');
+ const answer=(id,from,body)=>f.c.forwardMessage({id,to:'owner',from:{kind:'assistant',id:from,name:'CTO'},body,replyTo:lastInput()});
+ await f.c.receive(f.update('',{message_thread_id:70,is_topic_message:true,forum_topic_created:{name:'Old plan'}}));
+ await f.c.receive(f.update('still here',topicMessage('',70)));
+ assert.equal(f.writes.at(-1).body.text,'#old-plan still here');
+ // A mark the core took: no routed line, nothing changes.
+ await answer('a1','as-a','Yes.');
+ assert.equal(f.ledger.thread(70).slug,'old-plan');assert.equal(edits().length,0);
+ // Another Assistant's routed line changes nothing.
+ await answer('a2','as-b','#other · Yes.');
+ assert.equal(f.ledger.thread(70).slug,'old-plan');assert.equal(edits().length,0);
+ // Its topic was archived: the core routed it, and the chat topic follows.
+ await answer('a3','as-a','#trip · Filed.');
+ assert.deepEqual({...f.ledger.thread(70)},{assistant:'as-a',slug:'trip'});
+ assert.equal(edits().at(-1).body.name,'trip');
+ await f.c.receive(f.update('next',topicMessage('',70)));
+ assert.equal(f.writes.at(-1).body.text,'#trip next');
+ // The same topic again renames nothing.
+ await answer('a4','as-a','#trip · Again.');
+ assert.equal(edits().length,1);
+ // Routed to General: it waits, unmarked, and the name stays.
+ await answer('a5','as-a','#general · Hello.');
+ assert.equal(f.ledger.thread(70).slug,'');assert.equal(edits().length,1);
+ await f.c.receive(f.update('then',topicMessage('',70)));
+ assert.equal(f.writes.at(-1).body.text,'then');
+});
+
 test('/topics needs Threaded Mode and an Assistant, then opens a topic once',async t=>{
  const off=await fixture(t);off.select('assistant');
  await off.c.receive(off.update('/topics'));

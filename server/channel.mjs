@@ -418,25 +418,28 @@ export class Channel {
         body.text = clip(`${message.from.name || 'Agent'} sent a message.${this.fullText ? '\n\n' + message.body : '\n\nOpen COGNIX to read it. You can reply here.'}`);
       });
       this.ledger.settleDelivery(key, 'sent', result.message_id);
-      // A chat topic still waiting for a name takes the topic the core placed
-      // its message in, once the owner has the answer that says so: a routed
-      // answer leads with "#topic · " (ADR-0376 T4a). Only the Assistant the
-      // chat topic belongs to names it.
-      const waiting = this.ledger.thread(thread);
-      const placed = waiting?.slug === '' && waiting.assistant === message.from.id && /^#([^\s·]+) · /u.exec(message.body || '');
-      if (placed) await this.nameThread(thread, waiting.assistant, placed[1], generation).catch(() => {});
+      // A routed answer leads with "#topic · " (ADR-0376 T4a), and a message
+      // the core filed by its mark is never routed. So the line names a chat
+      // topic still waiting for a name, and corrects one whose mark the core
+      // refused (its topic was archived), once the owner has the answer that
+      // says so. Only the Assistant the chat topic belongs to does this.
+      const known = this.ledger.thread(thread);
+      const placed = known?.assistant === message.from.id && /^#([^\s·]+) · /u.exec(message.body || '');
+      if (placed) await this.nameThread(thread, known, placed[1], generation).catch(() => {});
     } catch (error) { this.failedSend(key, error); }
     // A claimed response (including unknown outcome) is never replayed through
     // a startup snapshot; known-refused V1 notice retries have their own ledger.
     if (assistant && message.replyTo) this.ledger.completeInput(message.replyTo);
   }
-  // nameThread gives a chat topic its COGNIX[WS] topic: messages in it lead
-  // with that mark from now on, and the chat topic is renamed to match.
-  // General is no topic to name a chat topic after.
-  async nameThread(thread, assistant, name, generation) {
+  // nameThread gives a chat topic the COGNIX[WS] topic the core placed its
+  // message in: messages in it lead with that mark from now on, and the chat
+  // topic is renamed to match. General is no topic to name a chat topic after:
+  // it waits for the next placement, without a mark the core refused.
+  async nameThread(thread, known, name, generation) {
     const slug = topicSlug(name);
-    if (!slug || slug === 'general' || !assistant) return;
-    this.ledger.setThread(thread, assistant, slug);
+    if (slug === 'general') return this.ledger.waitThread(thread);
+    if (!slug || slug === known.slug) return;
+    this.ledger.setThread(thread, known.assistant, slug);
     const pair = this.ledger.get('pair');
     await this.send('editForumTopic', { chat_id: pair?.chat, message_thread_id: thread, name: slug }, generation).catch(() => {});
   }

@@ -119,6 +119,12 @@ an invalid mark as text). General names no chat topic: it keeps waiting.
 The topic's first message also carries `is_name_implicit`, so a topic whose
 service message never arrived still waits.
 
+A message the core files by its mark is never routed, so a `#topic · ` line on
+an answer to a named chat topic means the core refused the mark, as it does
+for an archived topic (it keeps the word as text and the router places the
+message). The owner reads where it went in that line, and the chat topic
+follows: it takes the placed topic, or waits again when that is General.
+
 | Conditions | Action |
 |---|---|
 | Threaded Mode off | `/topics` explains it; topic fields are ignored |
@@ -133,6 +139,7 @@ service message never arrived still waits.
 | The answer to a waiting topic was not delivered | Nothing renamed: the owner never saw where it went |
 | Choose topics automatically is off for the Assistant | No routed line, so the topic keeps waiting; messages go as typed |
 | An agent, not an Assistant, chosen when the topic started | Not remembered; its messages go as typed |
+| A routed answer `#topic · …` to a named topic, from its Assistant (the core refused the mark: its topic was archived) | The topic takes `topic` and is renamed; for `#general` it waits again, unmarked and not renamed |
 | A topic renamed in Telegram (`forum_topic_edited`) | Takes the new name and keeps its Assistant |
 | A topic button for an open topic | No second topic; a line in the open one |
 | A button whose slug is not a slug | Refused |
