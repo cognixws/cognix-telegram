@@ -113,8 +113,11 @@ Such a name is no topic name: the chat topic waits, unnamed, and its
 messages go unmarked, so the core's router places them (rows 10, 11). The
 routed answer leads with `#topic · ` (T4a); the first one from the topic's
 Assistant names the chat topic, which `editForumTopic` renames to match, and
-later messages carry that mark. A leading `#name` the owner types names it
-at once. General names no chat topic: it keeps waiting.
+later messages carry that mark. A message the owner marks is filed by the
+core and answered without that line, so it names nothing (the core may keep
+an invalid mark as text). General names no chat topic: it keeps waiting.
+The topic's first message also carries `is_name_implicit`, so a topic whose
+service message never arrived still waits.
 
 | Conditions | Action |
 |---|---|
@@ -126,7 +129,10 @@ at once. General names no chat topic: it keeps waiting.
 | A topic Telegram named from its first message (`is_name_implicit`) | Waits unnamed; its messages go as typed, so the router places them |
 | A routed answer `#topic · …` to a waiting topic, from its Assistant | The topic takes `topic`; `editForumTopic` renames the chat topic |
 | The routed answer says `#general`, or comes from another Assistant | The topic keeps waiting; nothing renamed |
-| The owner's `#name` in a waiting topic | The topic takes `name` at once and is renamed |
+| The owner's `#name` in a waiting topic | As typed; the topic keeps waiting (the answer has no `#topic ·` line) |
+| The answer to a waiting topic was not delivered | Nothing renamed: the owner never saw where it went |
+| Choose topics automatically is off for the Assistant | No routed line, so the topic keeps waiting; messages go as typed |
+| An agent, not an Assistant, chosen when the topic started | Not remembered; its messages go as typed |
 | A topic renamed in Telegram (`forum_topic_edited`) | Takes the new name and keeps its Assistant |
 | A topic button for an open topic | No second topic; a line in the open one |
 | A button whose slug is not a slug | Refused |

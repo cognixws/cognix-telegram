@@ -345,12 +345,26 @@ test('a chat topic Telegram named from its text takes the topic the core placed 
  await f.c.forwardMessage({id:'answer-61',to:'owner',from:{kind:'assistant',id:'as-a',name:'CTO'},body:'#general · Hello.',replyTo:lastInput()});
  await f.c.forwardMessage({id:'answer-61b',to:'owner',from:{kind:'assistant',id:'as-b',name:'B'},body:'#other · Hello.',replyTo:lastInput()});
  assert.equal(f.ledger.thread(61).slug,'');assert.equal(edits().length,1);
- // The owner's own mark names a waiting chat topic at once.
- await f.c.receive(f.update('',{message_thread_id:62,is_topic_message:true,forum_topic_created:{name:'#Festa plan',is_name_implicit:true}}));
- await f.c.receive(f.update('#Festa plan it',topicMessage('',62)));
- assert.equal(f.writes.at(-1).body.text,'#Festa plan it');
- assert.deepEqual({...f.ledger.thread(62)},{assistant:'as-a',slug:'festa'});
- assert.deepEqual(edits().at(-1).body,{chat_id:edits().at(-1).body.chat_id,message_thread_id:62,name:'festa'});
+ // The owner's own mark names nothing: the core may keep it as text.
+ await f.c.receive(f.update('',{message_thread_id:62,is_topic_message:true,forum_topic_created:{name:'#c++ help',is_name_implicit:true}}));
+ await f.c.receive(f.update('#c++ help',topicMessage('',62)));
+ assert.equal(f.writes.at(-1).body.text,'#c++ help');
+ assert.equal(f.ledger.thread(62).slug,'');assert.equal(edits().length,1);
+ // A topic whose service message never came waits from its first message.
+ await f.c.receive(f.update('first words',{message_thread_id:64,is_topic_message:true,reply_to_message:{message_id:64,forum_topic_created:{name:'first wo…',is_name_implicit:true}}}));
+ assert.equal(f.writes.at(-1).body.text,'first words');
+ assert.deepEqual({...f.ledger.thread(64)},{assistant:'as-a',slug:''});
+ // An answer that could not be delivered names nothing.
+ f.setProviderError(Object.assign(new ApiError(400,'Bad Request'),{status:400}));
+ await f.c.forwardMessage({id:'answer-64',to:'owner',from:{kind:'assistant',id:'as-a',name:'CTO'},body:'#notes · Done.',replyTo:lastInput()});
+ f.setProviderError(null);
+ assert.equal(f.ledger.thread(64).slug,'');assert.equal(edits().length,1);
+ // A failed rename still names the topic and the answer stays delivered.
+ await f.c.receive(f.update('second',topicMessage('',64)));
+ const send=f.c.send.bind(f.c);f.c.send=(m,...a)=>m==='editForumTopic'?Promise.reject(new ApiError(400,'no')):send(m,...a);
+ await f.c.forwardMessage({id:'answer-64b',to:'owner',from:{kind:'assistant',id:'as-a',name:'CTO'},body:'#notes · Done.',replyTo:lastInput()});
+ f.c.send=send;
+ assert.equal(f.ledger.thread(64).slug,'notes');
  // A name the owner gave is the topic, as before.
  await f.c.receive(f.update('',{message_thread_id:63,is_topic_message:true,forum_topic_created:{name:'Budget'}}));
  assert.equal(f.ledger.thread(63).slug,'budget');

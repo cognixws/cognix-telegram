@@ -112,9 +112,6 @@ export class ChannelV2 {
       if (!identity(id)) throw new ApiError(502,'The input receipt could not be confirmed.',{uncertain:true});
       this.ledger.bindInput(key,id);
       if (thread) this.ledger.bindInputThread(id,thread);
-      // A chat topic waiting for a name takes the one the owner marked.
-      const mark = known && known.slug === '' && known.assistant === chosen?.id && !replyTo && /^#(\S+)\s/u.exec(text);
-      if (mark) await this.channel.nameThread(thread,known.assistant,mark[1],pairGeneration);
     } catch (error) {
       if (accepted) error.uncertain=true;
       try { this.ledger.settleDelivery(key,error.uncertain?'uncertain':error.status===429 || error.code==='paused'?'retry':'failed'); } catch { error.uncertain=true; }
