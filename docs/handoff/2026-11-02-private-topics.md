@@ -9,9 +9,13 @@ visual-review: n/a — no panel change.
 
 ## Next up
 
-- Owner decision on implicit chat-topic names (below).
+- None for topics; the debts below stay open in the PiCode topic.
 
 ## Debts
 
-- With Threaded Mode on, every message sent outside a chat topic starts one, and Telegram names it from the text (`is_name_implicit`). The extension takes that name, so each one opens a topic with a clipped name (`teste-de-tóp`). Proposal: on an implicit name send unmarked so the core router places it, then `editForumTopic` to the placed topic; needs the placed topic on the answer the extension reads (a core door change).
-- The chat topics `/topics` (slug `topics`) and `Teste de tóp…` from the live test stay in the owner's chat; the core topic `teste-de-tóp` stays on the CTO until the owner archives it.
+- Implicit chat-topic names: fixed in 0.4.2 (section below).
+
+## 0.4.2 — implicit chat-topic names (owner approved the recommendation)
+`da9019d` + `26dcc69`: a chat topic Telegram names from its text (`is_name_implicit`, from the service message or the first message's `reply_to_message`) waits unnamed; its messages go unmarked so the core's router places them; the first delivered routed answer (`#topic · …`) from its Assistant names it and `editForumTopic` renames it. No core change: the routed line is the core's existing contract (T4a). Adversarial review found the owner-mark path naming topics the core keeps as text (`#c++`) — removed — plus delivery/fallback risks, all fixed and tested (78 pass).
+Installed 0.4.1 → 0.4.2, digest prefix f0e0b7ed83d8e71b, connected and paired (receipt var/qa/telegram-topics/install-receipt-0.4.2.json). Live, CTO: a message outside any topic ("Sobre o jingle: …") was routed to `jingle`, answered "#jingle · …" in its chat topic, and the chat topic was renamed `jingle`; no new topic. The CTO's test topics (`teste-de-tóp`, `teste-canal`, `festa-fim-de-ano`, `viagem-lisboa`) were archived at the owner's request.
+Left as is: two chat topics can map to one topic (the newest wins for `/topics`); the old chat topics "/topics" and "Teste de tóp…" stay until the owner deletes them in Telegram.
