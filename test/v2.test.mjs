@@ -49,7 +49,7 @@ async function fixture(t, {topics=false}={}) {
     provider.push({method,body:structuredClone(body)});
     if(providerError) throw providerError;
     if(method==='createForumTopic') return {message_thread_id:700+provider.length,name:body.name};
-    return {message_id:100+provider.length};
+    return {message_id:100+provider.length,...(body.message_thread_id?{message_thread_id:body.message_thread_id}:{})};
   }};
   const c=new Channel({ledger,host,makeBot:()=>bot,now:ledger.now,spacing:0});await c.configure();
   const chat={id:14,type:'private'},from={id:14};
@@ -422,31 +422,33 @@ test('/topics needs Threaded Mode and an Assistant, then opens a topic once',asy
  assert.equal(f.provider.filter(p=>p.method==='createForumTopic').length,1,'an open topic is not made twice');
  await f.c.receive(f.callback('p:forged-handle',sentID));
  assert.equal(f.provider.filter(p=>p.method==='createForumTopic').length,1,'a handle of no current topic is refused');
- // The check names nothing, so it cannot rename a topic the owner named.
- const probe=f.provider.filter(p=>p.method==='editForumTopic').at(-1);
- assert.equal(probe.body.name,undefined);assert.equal(probe.body.message_thread_id,thread);
- // A live topic may answer that nothing changed: it is still the same topic.
- const send=f.c.send.bind(f.c);f.c.send=(m,...a)=>{if(m==='editForumTopic')throw new ApiError(400,'Telegram refused this action.',{code:'topic-not-modified'});return send(m,...a);};
- f.setProviderError(null);
- assert.match((await f.c.v2.openTopic(trip.slice(2),f.ledger.get('pair').generation)).text,/#trip/);
- f.c.send=send;
- assert.equal(f.ledger.threadOf('as-a','trip'),thread,'a live topic is kept');
- assert.equal(f.provider.filter(p=>p.method==='createForumTopic').length,1);
- // A topic deleted in Telegram is made again.
- f.setProviderError(new ApiError(400,'Telegram refused this action.'));
+ // A live topic takes the line, in that topic, and no other is made.
  const before=f.provider.length;
- await assert.rejects(f.c.v2.openTopic(trip.slice(2),f.ledger.get('pair').generation));f.setProviderError(null);
- assert.equal(f.ledger.threadOf('as-a','trip'),0,'the deleted thread is forgotten');
- assert.ok(f.provider.length>before);
- await f.c.v2.openTopic(trip.slice(2),f.ledger.get('pair').generation);
- const made2=f.provider.filter(p=>p.method==='createForumTopic');
- assert.equal(made2.length,3,'the first, the attempt the fixture refused, and the new one');
- assert.ok(f.ledger.threadOf('as-a','trip')>0,'and made again');
- // A check that could not reach Telegram forgets nothing.
- const current=f.ledger.threadOf('as-a','trip');
- f.setProviderError(new ApiError(500,'Telegram refused this action.',{uncertain:true}));
- await assert.rejects(f.c.v2.openTopic(trip.slice(2),f.ledger.get('pair').generation));f.setProviderError(null);
- assert.equal(f.ledger.threadOf('as-a','trip'),current);
+ await f.c.receive(f.callback(trip,sentID));
+ const lines=f.provider.slice(before).filter(p=>p.method==='sendMessage');
+ assert.equal(lines.length,1);assert.equal(lines[0].body.message_thread_id,thread);assert.match(lines[0].body.text,/#trip/);
+ assert.equal(f.provider.filter(p=>p.method==='editForumTopic').length,0,'nothing is renamed');
+ assert.equal(f.ledger.threadOf('as-a','trip'),thread,'a live topic is kept');
+ // Telegram refuses the line for a deleted topic: it is made again.
+ const send=f.c.send.bind(f.c);
+ const refuse=(from)=>{f.c.send=(m,b,...a)=>m==='sendMessage'&&b.message_thread_id===from?Promise.reject(new ApiError(400,'Telegram refused this action.')):send(m,b,...a);};
+ refuse(thread);
+ await f.c.receive(f.callback(trip,sentID));
+ const second=f.ledger.threadOf('as-a','trip');
+ assert.ok(second>0&&second!==thread,'a new chat topic');
+ assert.equal(f.provider.filter(p=>p.method==='createForumTopic').length,2);
+ assert.equal(f.provider.at(-1).body.message_thread_id,second,'the line is in the new one');
+ // Telegram files the line outside the topic: gone too.
+ f.c.send=(m,b,...a)=>m==='sendMessage'&&b.message_thread_id===second?Promise.resolve({message_id:999}):send(m,b,...a);
+ await f.c.receive(f.callback(trip,sentID));
+ const third=f.ledger.threadOf('as-a','trip');
+ assert.ok(third>0&&third!==second);
+ f.c.send=send;
+ // A line that could not reach Telegram forgets nothing.
+ f.c.send=(m,b,...a)=>m==='sendMessage'&&b.message_thread_id===third?Promise.reject(new ApiError(500,'Telegram refused this action.',{uncertain:true})):send(m,b,...a);
+ await assert.rejects(f.c.v2.openTopic(trip.slice(2),f.ledger.get('pair').generation));
+ f.c.send=send;
+ assert.equal(f.ledger.threadOf('as-a','trip'),third);
 });
 
 test('long names give buttons Telegram accepts',async t=>{

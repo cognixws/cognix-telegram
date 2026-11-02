@@ -141,8 +141,9 @@ follows: it takes the placed topic, or waits again when that is General.
 | An agent, not an Assistant, chosen when the topic started | Not remembered; its messages go as typed |
 | A routed answer `#topic · …` to a named topic, from its Assistant (the core refused the mark: its topic was archived) | The topic takes `topic` and is renamed; for `#general` it waits again, unmarked and not renamed |
 | A topic renamed in Telegram (`forum_topic_edited`) | Takes the new name and keeps its Assistant |
-| A topic button for an open topic | No second topic; a line in the open one |
-| A topic button for a chat topic deleted in Telegram | Known defect (0.4.4): Telegram refuses neither `sendChatAction` nor `editForumTopic` naming nothing for a deleted thread (measured live), so no chat topic is made and the tap shows nothing |
+| A topic button for a known chat topic | The confirmation line goes into it; landing in that topic means it is open |
+| Telegram refuses that line with a 400, or files it outside the topic (deleted in Telegram; it refuses neither `sendChatAction` nor an empty `editForumTopic`) | The row is forgotten and a new chat topic made, with the line in it |
+| That line fails any other way | Nothing forgotten; the tap reports the failure |
 | A button whose slug is not a slug | Refused |
 | Pairing cleared, bot changed or host restored | Topic names and input threads are cleared with the pairing |
 

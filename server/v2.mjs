@@ -148,16 +148,19 @@ export class ChannelV2 {
     const slug = (await this.slugs(target.id)).find(s => topicHandle(target.id,s) === handle);
     if (!slug) throw new ApiError(409,'This topic is no longer available. Use /topics again.');
     const pair = this.ledger.get('pair');
+    const line = `Messages you send in this topic go to #${slug}.`;
     let thread = this.ledger.threadOf(target.id,slug);
     if (thread) {
-      // A topic deleted in Telegram sends no update, and Telegram takes a chat
-      // action for one (measured live). An edit that names nothing changes
-      // nothing: a live topic answers it, a deleted one refuses it.
-      try { await this.channel.send('editForumTopic',{chat_id:pair.chat,message_thread_id:thread},pairGeneration); }
-      catch (error) {
-        if (error.status !== 400) throw error;
-        if (error.code !== 'topic-not-modified') { this.ledger.forgetThread(thread); thread = 0; }
-      }
+      // A topic deleted in Telegram sends no update, and Telegram refuses
+      // neither a chat action nor an empty edit for one (measured live). The
+      // line itself is the check: it lands in a live topic, and a refusal, or
+      // a message Telegram filed outside the topic, means the topic is gone.
+      try {
+        const sent = await this.channel.notice(line,{message_thread_id:thread},pairGeneration);
+        if (sent?.message_thread_id === thread) return null;
+      } catch (error) { if (error.status !== 400) throw error; }
+      this.ledger.forgetThread(thread);
+      thread = 0;
     }
     if (!thread) {
       const made = await this.channel.send('createForumTopic',{chat_id:pair.chat,name:slug},pairGeneration);
@@ -165,7 +168,7 @@ export class ChannelV2 {
       if (!Number.isSafeInteger(thread)) throw new ApiError(502,'The topic could not be confirmed.',{uncertain:true});
       this.ledger.setThread(thread,target.id,slug);
     }
-    return {text:`Messages you send in this topic go to #${slug}.`,thread};
+    return {text:line,thread};
   }
   async replyAllowed(id, pairGeneration) {
     this.channel.assertActive(pairGeneration);
