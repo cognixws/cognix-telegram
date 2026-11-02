@@ -422,13 +422,31 @@ test('/topics needs Threaded Mode and an Assistant, then opens a topic once',asy
  assert.equal(f.provider.filter(p=>p.method==='createForumTopic').length,1,'an open topic is not made twice');
  await f.c.receive(f.callback('p:forged-handle',sentID));
  assert.equal(f.provider.filter(p=>p.method==='createForumTopic').length,1,'a handle of no current topic is refused');
+ // The check names nothing, so it cannot rename a topic the owner named.
+ const probe=f.provider.filter(p=>p.method==='editForumTopic').at(-1);
+ assert.equal(probe.body.name,undefined);assert.equal(probe.body.message_thread_id,thread);
+ // A live topic may answer that nothing changed: it is still the same topic.
+ const send=f.c.send.bind(f.c);f.c.send=(m,...a)=>{if(m==='editForumTopic')throw new ApiError(400,'Telegram refused this action.',{code:'topic-not-modified'});return send(m,...a);};
+ f.setProviderError(null);
+ assert.match((await f.c.v2.openTopic(trip.slice(2),f.ledger.get('pair').generation)).text,/#trip/);
+ f.c.send=send;
+ assert.equal(f.ledger.threadOf('as-a','trip'),thread,'a live topic is kept');
+ assert.equal(f.provider.filter(p=>p.method==='createForumTopic').length,1);
  // A topic deleted in Telegram is made again.
- f.setProviderError(Object.assign(new ApiError(400,'Bad Request: message thread not found'),{status:400}));
+ f.setProviderError(new ApiError(400,'Telegram refused this action.'));
  const before=f.provider.length;
- const once=f.c.v2.openTopic(trip.slice(2),f.ledger.get('pair').generation);
- await assert.rejects(once);f.setProviderError(null);
+ await assert.rejects(f.c.v2.openTopic(trip.slice(2),f.ledger.get('pair').generation));f.setProviderError(null);
  assert.equal(f.ledger.threadOf('as-a','trip'),0,'the deleted thread is forgotten');
  assert.ok(f.provider.length>before);
+ await f.c.v2.openTopic(trip.slice(2),f.ledger.get('pair').generation);
+ const made2=f.provider.filter(p=>p.method==='createForumTopic');
+ assert.equal(made2.length,3,'the first, the attempt the fixture refused, and the new one');
+ assert.ok(f.ledger.threadOf('as-a','trip')>0,'and made again');
+ // A check that could not reach Telegram forgets nothing.
+ const current=f.ledger.threadOf('as-a','trip');
+ f.setProviderError(new ApiError(500,'Telegram refused this action.',{uncertain:true}));
+ await assert.rejects(f.c.v2.openTopic(trip.slice(2),f.ledger.get('pair').generation));f.setProviderError(null);
+ assert.equal(f.ledger.threadOf('as-a','trip'),current);
 });
 
 test('long names give buttons Telegram accepts',async t=>{

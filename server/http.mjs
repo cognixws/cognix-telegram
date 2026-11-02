@@ -78,7 +78,7 @@ export class TelegramAPI {
     if (!data || typeof data.ok!=='boolean') throw new ApiError(502,'The provider response could not be confirmed.',{uncertain:true});
     if (!data.ok) {
       const status = Number(data.error_code) || 500;
-      throw new ApiError(status, status === 401 ? 'The bot token is no longer valid.' : status === 409 ? 'Another connection is using this bot.' : status === 429 ? 'Telegram asked us to wait.' : 'Telegram refused this action.', { uncertain: status >= 500, retryAfter: Number(data.parameters?.retry_after) || 0 });
+      throw new ApiError(status, status === 401 ? 'The bot token is no longer valid.' : status === 409 ? 'Another connection is using this bot.' : status === 429 ? 'Telegram asked us to wait.' : 'Telegram refused this action.', { uncertain: status >= 500, retryAfter: Number(data.parameters?.retry_after) || 0, code: /TOPIC_NOT_MODIFIED/.test(String(data.description)) ? 'topic-not-modified' : '' });
     }
     if (method==='sendMessage' && (!Number.isSafeInteger(data.result?.message_id) || data.result.message_id<=0)) throw new ApiError(502,'The provider receipt could not be confirmed.',{uncertain:true});
     return data.result;

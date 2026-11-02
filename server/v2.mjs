@@ -150,9 +150,14 @@ export class ChannelV2 {
     const pair = this.ledger.get('pair');
     let thread = this.ledger.threadOf(target.id,slug);
     if (thread) {
-      // A topic deleted in Telegram sends no update: check it is still there.
-      try { await this.channel.send('sendChatAction',{chat_id:pair.chat,message_thread_id:thread,action:'typing'},pairGeneration); }
-      catch (error) { if (error.status === 400) { this.ledger.forgetThread(thread); thread = 0; } else throw error; }
+      // A topic deleted in Telegram sends no update, and Telegram takes a chat
+      // action for one (measured live). An edit that names nothing changes
+      // nothing: a live topic answers it, a deleted one refuses it.
+      try { await this.channel.send('editForumTopic',{chat_id:pair.chat,message_thread_id:thread},pairGeneration); }
+      catch (error) {
+        if (error.status !== 400) throw error;
+        if (error.code !== 'topic-not-modified') { this.ledger.forgetThread(thread); thread = 0; }
+      }
     }
     if (!thread) {
       const made = await this.channel.send('createForumTopic',{chat_id:pair.chat,name:slug},pairGeneration);
