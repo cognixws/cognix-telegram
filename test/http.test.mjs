@@ -90,7 +90,9 @@ test('Host API v2 exposes only the four explicit extension doors',async t=>{
  const {HostAPI}=await import('../server/http.mjs');let calls=0;
  const origin=await server(t,(_,res)=>{calls++;res.end('{"fixture":true}');});
  const api=new HostAPI({url:origin,token:'synthetic',dataDir:'.'});
- for(const path of ['/api/ext/v2/channel/session','/api/ext/v2/assistants','/api/ext/v2/assistants/messages','/api/ext/v2/assistants/replies/check']) assert.deepEqual(await api.request(path),{fixture:true});
- for(const path of ['/api/ext/v2/settings','/api/channels/access','/api/assistants','/api/ext/v2/assistants/../settings']) assert.throws(()=>api.request(path));
- assert.equal(calls,4);
+
+ for(const path of ['/api/ext/v2/channel/session','/api/ext/v2/assistants','/api/ext/v2/assistants/messages','/api/ext/v2/assistants/replies/check','/api/ext/v2/assistants/topics?assistant=assistant-1']) assert.deepEqual(await api.request(path),{fixture:true});
+ for(const path of ['/api/ext/v2/settings','/api/channels/access','/api/assistants','/api/ext/v2/assistants/../settings','/api/ext/v2/assistants/topics/../../settings','/api/ext/v2/assistants/%2e%2e/settings','/api/ext/v2/assistants/topics#x','//evil.example/api/ext/v1/me','/api/ext/v2/settings?x=/api/ext/v2/assistants','/api/ext/v1/..\\v2\\settings']) assert.throws(()=>api.request(path),path);
+ assert.deepEqual(await api.request('/api/ext/v1/inbox/'+encodeURIComponent('a b%')+'/respond',{}),{fixture:true});
+ assert.equal(calls,6);
 });

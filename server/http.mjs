@@ -44,6 +44,9 @@ export function jsonRequest(url, { method = 'GET', body, headers = {}, ca, allow
   });
 }
 
+// The ADR-0230 v2 doors this extension calls; anything else is refused here.
+const V2_DOORS = new Set(['/api/ext/v2/channel/session', '/api/ext/v2/assistants', '/api/ext/v2/assistants/messages', '/api/ext/v2/assistants/replies/check', '/api/ext/v2/assistants/topics']);
+
 export class HostAPI {
   constructor({ url, token, dataDir }) {
     this.url = new URL(url);
@@ -54,8 +57,15 @@ export class HostAPI {
     if (this.url.protocol === 'https:') this.ca = readFileSync(resolve(dataDir, '../../..', 'cert.pem'));
   }
   request(path, body) {
-    if (!path.startsWith('/api/ext/v1/') && !['/api/ext/v2/channel/session', '/api/ext/v2/assistants', '/api/ext/v2/assistants/messages', '/api/ext/v2/assistants/replies/check'].includes(path)) throw new Error('Only the extension Host API may be used.');
-    return jsonRequest(new URL(path, this.url), { body, method: body === undefined ? 'GET' : 'POST', headers: this.headers, ca: this.ca, allowPartialTrustChain: !!this.ca, maxBytes: 32 * 1024 * 1024 });
+    // The path is checked without its query: a door that reads takes its
+    // arguments there (/api/ext/v2/assistants/topics?assistant=…).
+    const [pathname, query = ''] = String(path).split(/\?(.*)/s);
+    if (!pathname.startsWith('/api/ext/v1/') && !V2_DOORS.has(pathname)) throw new Error('Only the extension Host API may be used.');
+    const target = new URL(pathname + (query ? '?' + query : ''), this.url);
+    // A dot segment, an encoded one, a backslash or a fragment changes the
+    // resolved path, so the door named is the door reached.
+    if (target.origin !== this.url.origin || target.pathname !== pathname) throw new Error('Only the extension Host API may be used.');
+    return jsonRequest(target, { body, method: body === undefined ? 'GET' : 'POST', headers: this.headers, ca: this.ca, allowPartialTrustChain: !!this.ca, maxBytes: 32 * 1024 * 1024 });
   }
 }
 
