@@ -317,6 +317,45 @@ test('a message in a private-chat topic goes to that topic and is answered there
  assert.equal(f.writes.at(-1).body.text,'for B');
 });
 
+test('a chat topic Telegram named from its text takes the topic the core placed it in',async t=>{
+ const f=await fixture(t,{topics:true});f.select('assistant');
+ const lastInput=()=>f.ledger.db.prepare('SELECT message_id FROM input_threads ORDER BY rowid DESC LIMIT 1').get().message_id;
+ const edits=()=>f.provider.filter(p=>p.method==='editForumTopic');
+ // Telegram starts a topic from a message and names it from the text.
+ await f.c.receive(f.update('',{message_thread_id:60,is_topic_message:true,forum_topic_created:{name:'Plan the tri…',is_name_implicit:true}}));
+ assert.deepEqual({...f.ledger.thread(60)},{assistant:'as-a',slug:''});
+ await f.c.receive(f.update('Plan the trip to Lisbon',topicMessage('',60)));
+ assert.equal(f.writes.at(-1).body.text,'Plan the trip to Lisbon','unmarked: the router places it');
+ // The routed answer names the topic; the chat topic is renamed to it.
+ const first=lastInput();
+ await f.c.forwardMessage({id:'answer-60',to:'owner',from:{kind:'assistant',id:'as-a',name:'CTO'},body:'#trip · Sure.',replyTo:first});
+ assert.equal(f.provider.find(p=>p.method==='sendMessage'&&p.body.message_thread_id===60&&/Sure/.test(p.body.text)).body.message_thread_id,60);
+ assert.deepEqual(edits().map(p=>[p.body.message_thread_id,p.body.name]),[[60,'trip']]);
+ assert.deepEqual({...f.ledger.thread(60)},{assistant:'as-a',slug:'trip'});
+ await f.c.receive(f.update('book the hotel',topicMessage('',60)));
+ assert.equal(f.writes.at(-1).body.text,'#trip book the hotel');
+ // Telegram reports the rename: the topic keeps its Assistant.
+ f.ledger.selectTarget({kind:'assistant',id:'as-b',generation:f.ledger.get('host_generation'),revision:1});
+ await f.c.receive(f.update('',{message_thread_id:60,is_topic_message:true,forum_topic_edited:{name:'trip'}}));
+ assert.deepEqual({...f.ledger.thread(60)},{assistant:'as-a',slug:'trip'});
+ f.select('assistant');
+ // General names no chat topic, and another Assistant's answer names none.
+ await f.c.receive(f.update('',{message_thread_id:61,is_topic_message:true,forum_topic_created:{name:'hi',is_name_implicit:true}}));
+ await f.c.receive(f.update('hi',topicMessage('',61)));
+ await f.c.forwardMessage({id:'answer-61',to:'owner',from:{kind:'assistant',id:'as-a',name:'CTO'},body:'#general · Hello.',replyTo:lastInput()});
+ await f.c.forwardMessage({id:'answer-61b',to:'owner',from:{kind:'assistant',id:'as-b',name:'B'},body:'#other · Hello.',replyTo:lastInput()});
+ assert.equal(f.ledger.thread(61).slug,'');assert.equal(edits().length,1);
+ // The owner's own mark names a waiting chat topic at once.
+ await f.c.receive(f.update('',{message_thread_id:62,is_topic_message:true,forum_topic_created:{name:'#Festa plan',is_name_implicit:true}}));
+ await f.c.receive(f.update('#Festa plan it',topicMessage('',62)));
+ assert.equal(f.writes.at(-1).body.text,'#Festa plan it');
+ assert.deepEqual({...f.ledger.thread(62)},{assistant:'as-a',slug:'festa'});
+ assert.deepEqual(edits().at(-1).body,{chat_id:edits().at(-1).body.chat_id,message_thread_id:62,name:'festa'});
+ // A name the owner gave is the topic, as before.
+ await f.c.receive(f.update('',{message_thread_id:63,is_topic_message:true,forum_topic_created:{name:'Budget'}}));
+ assert.equal(f.ledger.thread(63).slug,'budget');
+});
+
 test('/topics needs Threaded Mode and an Assistant, then opens a topic once',async t=>{
  const off=await fixture(t);off.select('assistant');
  await off.c.receive(off.update('/topics'));

@@ -107,13 +107,27 @@ thread, so its receipt and the Assistant's answer return to that topic; a
 message outside topics, and a reply to an earlier message, keep the main
 chat and their canonical binding.
 
+With Threaded Mode, a message sent outside any topic starts one, and
+Telegram names it from the text (`forum_topic_created.is_name_implicit`).
+Such a name is no topic name: the chat topic waits, unnamed, and its
+messages go unmarked, so the core's router places them (rows 10, 11). The
+routed answer leads with `#topic · ` (T4a); the first one from the topic's
+Assistant names the chat topic, which `editForumTopic` renames to match, and
+later messages carry that mark. A leading `#name` the owner types names it
+at once. General names no chat topic: it keeps waiting.
+
 | Conditions | Action |
 |---|---|
 | Threaded Mode off | `/topics` explains it; topic fields are ignored |
 | No Assistant chosen | `/topics` asks for `/assistants` |
 | A message in a known topic | `#slug` + text to the Assistant; receipt and answer in the topic |
 | A message in a topic the adapter never saw named | As typed, main routing (the core's router may choose) |
-| A message in a topic that starts with `#` | As typed |
+| A message in a known topic that starts with its own `#slug` | As typed (not doubled); another `#…` gets the topic's mark |
+| A topic Telegram named from its first message (`is_name_implicit`) | Waits unnamed; its messages go as typed, so the router places them |
+| A routed answer `#topic · …` to a waiting topic, from its Assistant | The topic takes `topic`; `editForumTopic` renames the chat topic |
+| The routed answer says `#general`, or comes from another Assistant | The topic keeps waiting; nothing renamed |
+| The owner's `#name` in a waiting topic | The topic takes `name` at once and is renamed |
+| A topic renamed in Telegram (`forum_topic_edited`) | Takes the new name and keeps its Assistant |
 | A topic button for an open topic | No second topic; a line in the open one |
 | A button whose slug is not a slug | Refused |
 | Pairing cleared, bot changed or host restored | Topic names and input threads are cleared with the pairing |

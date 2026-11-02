@@ -243,12 +243,18 @@ export class Channel {
       return this.answer(item.id, choice, generation);
     }
     // A topic made or renamed in the private chat: remember its name (T4b).
-    // It belongs to the Assistant chosen when it was made or renamed.
+    // A new one belongs to the Assistant chosen when it was made; a renamed
+    // one keeps its Assistant. A name Telegram took from the first message
+    // (is_name_implicit) is no topic name: the thread waits for the core to
+    // place its first message, then takes that topic's name.
     const made = message.forum_topic_created || message.forum_topic_edited;
     if (made && topicThread(message)) {
+      const id = topicThread(message);
       const target = this.ledger.get('selected_target');
+      const assistant = (message.forum_topic_edited && this.ledger.thread(id)?.assistant) || (target?.kind === 'assistant' ? target.id : '');
       const slug = typeof made.name === 'string' ? topicSlug(made.name) : '';
-      if (slug && target?.kind === 'assistant') this.ledger.setThread(topicThread(message), target.id, slug);
+      if (message.forum_topic_created?.is_name_implicit === true) this.ledger.pendThread(id, assistant);
+      else if (slug) this.ledger.setThread(id, assistant, slug);
       return null;
     }
     const text = message.text?.trim();
@@ -407,9 +413,25 @@ export class Channel {
       });
       this.ledger.settleDelivery(key, 'sent', result.message_id);
     } catch (error) { this.failedSend(key, error); }
+    // A chat topic still waiting for a name takes the topic the core placed
+    // its message in: a routed answer leads with "#topic · " (ADR-0376 T4a).
+    // Only the Assistant the chat topic belongs to names it.
+    const waiting = thread ? this.ledger.thread(thread) : null;
+    const placed = waiting?.slug === '' && waiting.assistant === message.from.id && /^#([^\s·]+) · /u.exec(message.body || '');
+    if (placed) await this.nameThread(thread, waiting.assistant, placed[1], generation);
     // A claimed response (including unknown outcome) is never replayed through
     // a startup snapshot; known-refused V1 notice retries have their own ledger.
     if (assistant && message.replyTo) this.ledger.completeInput(message.replyTo);
+  }
+  // nameThread gives a chat topic its COGNIX[WS] topic: messages in it lead
+  // with that mark from now on, and the chat topic is renamed to match.
+  // General is no topic to name a chat topic after.
+  async nameThread(thread, assistant, name, generation) {
+    const slug = topicSlug(name);
+    if (!slug || slug === 'general' || !assistant) return;
+    this.ledger.setThread(thread, assistant, slug);
+    const pair = this.ledger.get('pair');
+    await this.send('editForumTopic', { chat_id: pair?.chat, message_thread_id: thread, name: slug }, generation).catch(() => {});
   }
   async inboxOnce({ wait = 0, snapshot = false } = {}) {
     if (!this.bot || !this.ledger.get('pair') || this.ledger.get('paused', false) || this.connectionBlocked()) return;

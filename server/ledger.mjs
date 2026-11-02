@@ -123,6 +123,13 @@ export class Ledger {
     if (!Number.isSafeInteger(id) || !assistant || !slug) return;
     this.db.prepare('INSERT INTO threads(thread_id,assistant,slug,created_at) VALUES(?,?,?,?) ON CONFLICT(thread_id) DO UPDATE SET slug=excluded.slug,assistant=excluded.assistant').run(id, assistant, slug, this.now());
   }
+  // pendThread remembers a chat topic Telegram named from its first message
+  // (is_name_implicit): it has no slug until the core places a message from
+  // it. A thread already named keeps its name.
+  pendThread(id, assistant) {
+    if (!Number.isSafeInteger(id) || !assistant) return;
+    this.db.prepare("INSERT INTO threads(thread_id,assistant,slug,created_at) VALUES(?,?,'',?) ON CONFLICT(thread_id) DO NOTHING").run(id, assistant, this.now());
+  }
   forgetThread(id) { if (Number.isSafeInteger(id)) this.db.prepare('DELETE FROM threads WHERE thread_id=?').run(id); }
   bindInputThread(messageID, thread) {
     if (!messageID || !Number.isSafeInteger(thread)) return;

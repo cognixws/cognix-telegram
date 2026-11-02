@@ -34,7 +34,9 @@ packages or hosted relay are required.
    With **Threaded Mode** on for your bot in @BotFather, `/topics` lists the
    Assistant's topics and opens one as a topic of the private chat: what you
    write there goes to that topic and its answers come back there. A topic you
-   make in the chat yourself goes to the topic of the same name, opened if new.
+   name in the chat yourself goes to the topic of the same name, opened if new;
+   one Telegram names from your first message takes the topic the Assistant
+   files it in, and is renamed to match.
 7. For CLI tool sends, enable the default-off **Channels** family and relaunch
    that CLI. List the connections and choose one explicitly for each send.
    Ordinary Assistant answers return to their source automatically; a tool send
