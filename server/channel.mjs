@@ -1,4 +1,4 @@
-import { ChannelV2 } from './v2.mjs';
+import { ChannelV2, topicUnconfirmed } from './v2.mjs';
 import { diagnostic } from './problems.mjs';
 import { createHash } from 'node:crypto';
 import { ApiError } from './http.mjs';
@@ -272,6 +272,16 @@ export class Channel {
     if (topicRoot(message) && message.reply_to_message.forum_topic_created?.is_name_implicit === true) {
       const target = this.ledger.get('selected_target');
       if (target?.kind === 'assistant') this.ledger.pendThread(topicThread(message), target.id);
+    }
+    // A named chat topic this ledger does not know (its creation was not
+    // confirmed) is adopted by the name it carries, for the chosen Assistant.
+    const root = topicRoot(message) && message.reply_to_message.forum_topic_created;
+    if (root && root.is_name_implicit !== true && typeof root.name === 'string' && !this.ledger.thread(topicThread(message))) {
+      const target = this.ledger.get('selected_target'), slug = topicSlug(root.name);
+      if (target?.kind === 'assistant' && slug) {
+        this.ledger.setThread(topicThread(message), target.id, slug);
+        this.ledger.unset(topicUnconfirmed(target.id, slug));
+      }
     }
     const mapping = replied && this.ledger.mapping(replied.message_id);
     if (replied && !mapping) return { text: 'This message is no longer linked. Use /agents to choose who to write to, or open the question in COGNIX.' };

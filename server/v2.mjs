@@ -163,9 +163,20 @@ export class ChannelV2 {
       thread = 0;
     }
     if (!thread) {
-      const made = await this.channel.send('createForumTopic',{chat_id:pair.chat,name:slug},pairGeneration);
+      // Telegram has no call that lists a chat's topics, so a creation whose
+      // answer was lost cannot be looked up. It is remembered instead: the
+      // next tap makes nothing and says where to look, the topic is adopted
+      // when the owner writes in it, and only the tap after that makes one.
+      const unconfirmed = topicUnconfirmed(target.id,slug);
+      if (this.ledger.get(unconfirmed)) {
+        this.ledger.unset(unconfirmed);
+        return {text:`Telegram may have opened #${slug} here without confirming it. Look for it in this chat's topics; if it is not there, tap #${slug} again.`};
+      }
+      let made;
+      try { made = await this.channel.send('createForumTopic',{chat_id:pair.chat,name:slug},pairGeneration); }
+      catch (error) { if (error.uncertain) this.ledger.set(unconfirmed,this.channel.now()); throw error; }
       thread = made?.message_thread_id;
-      if (!Number.isSafeInteger(thread)) throw new ApiError(502,'The topic could not be confirmed.',{uncertain:true});
+      if (!Number.isSafeInteger(thread)) { this.ledger.set(unconfirmed,this.channel.now()); throw new ApiError(502,'The topic could not be confirmed.',{uncertain:true}); }
       this.ledger.setThread(thread,target.id,slug);
     }
     return {text:line,thread};
@@ -220,3 +231,7 @@ export class ChannelV2 {
     return this.receipt(body);
   }
 }
+
+// topicUnconfirmed is the ledger key of a chat topic whose creation Telegram
+// may have done without confirming it.
+export function topicUnconfirmed(assistant, slug) { return `topic_unconfirmed:${assistant}:${slug}`; }

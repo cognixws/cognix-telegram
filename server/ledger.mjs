@@ -23,6 +23,7 @@ export class Ledger {
     const row = this.db.prepare('SELECT value FROM metadata WHERE key=?').get(key);
     return row ? JSON.parse(row.value) : fallback;
   }
+  unset(key) { this.db.prepare('DELETE FROM metadata WHERE key=?').run(key); }
   set(key, value) {
     this.db.prepare('INSERT INTO metadata(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value').run(key, JSON.stringify(value));
   }
@@ -56,6 +57,7 @@ export class Ledger {
     // Another chat's topics are not this one's.
     this.db.prepare('DELETE FROM threads').run();
     this.db.prepare('DELETE FROM input_threads').run();
+    this.db.prepare("DELETE FROM metadata WHERE key LIKE 'topic\\_unconfirmed:%' ESCAPE '\\'").run();
     this.set('chat_blocked', false);
     this.newUpdateEpoch();
     // A restored or disconnected receipt is evidence, never queued work.

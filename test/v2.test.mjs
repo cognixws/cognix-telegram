@@ -451,6 +451,50 @@ test('/topics needs Threaded Mode and an Assistant, then opens a topic once',asy
  assert.equal(f.ledger.threadOf('as-a','trip'),third);
 });
 
+test('a chat topic Telegram made without confirming it is not made twice',async t=>{
+ const f=await fixture(t,{topics:true});f.select('assistant');
+ await f.c.receive(f.update('/topics'));
+ const trip=f.provider.at(-1).body.reply_markup.inline_keyboard[1][0].callback_data,handle=trip.slice(2),generation=f.ledger.get('pair').generation;
+ const send=f.c.send.bind(f.c),made=()=>f.provider.filter(p=>p.method==='createForumTopic').length;
+ // The answer is lost: Telegram may have made it.
+ f.c.send=(m,b,...a)=>m==='createForumTopic'?send(m,b,...a).then(()=>{throw new ApiError(0,'The connection could not be confirmed.',{uncertain:true});}):send(m,b,...a);
+ await assert.rejects(f.c.v2.openTopic(handle,generation));
+ f.c.send=send;
+ assert.equal(made(),1);assert.equal(f.ledger.threadOf('as-a','trip'),0);
+ // The next tap makes nothing and says where to look.
+ const answer=await f.c.v2.openTopic(handle,generation);
+ assert.match(answer.text,/may have opened #trip/);assert.equal(answer.thread,undefined);
+ assert.equal(made(),1,'no second chat topic');
+ // The tap after that makes one.
+ const next=await f.c.v2.openTopic(handle,generation);
+ assert.equal(made(),2);assert.ok(next.thread>0);
+ // A refusal made nothing: the next tap makes one.
+ f.ledger.forgetThread(next.thread);
+ f.c.send=(m,b,...a)=>m==='createForumTopic'?Promise.reject(new ApiError(400,'Telegram refused this action.')):send(m,b,...a);
+ await assert.rejects(f.c.v2.openTopic(handle,generation));
+ f.c.send=send;
+ const refused=made();
+ assert.ok((await f.c.v2.openTopic(handle,generation)).thread>0);
+ assert.equal(made(),refused+1,'a refused creation is not remembered');
+ // A receipt without a thread is remembered like a lost answer.
+ f.ledger.forgetThread(f.ledger.threadOf('as-a','trip'));
+ f.c.send=(m,b,...a)=>m==='createForumTopic'?Promise.resolve({}):send(m,b,...a);
+ await assert.rejects(f.c.v2.openTopic(handle,generation));
+ f.c.send=send;
+ // The owner writes in the topic Telegram made: it is adopted by its name,
+ // the message goes to #trip, and the next tap finds it.
+ await f.c.receive(f.update('book the hotel',{message_thread_id:81,is_topic_message:true,reply_to_message:{message_id:81,forum_topic_created:{name:'trip'}}}));
+ assert.deepEqual({...f.ledger.thread(81)},{assistant:'as-a',slug:'trip'});
+ assert.equal(f.writes.at(-1).body.text,'#trip book the hotel');
+ const before=made();
+ const found=await f.c.v2.openTopic(handle,generation);
+ assert.equal(found,null,'the adopted topic takes the line');assert.equal(made(),before);
+ assert.equal(f.ledger.get('topic_unconfirmed:as-a:trip'),null,'the marker is gone');
+ // An implicit name is not adopted as a topic.
+ await f.c.receive(f.update('hello',{message_thread_id:82,is_topic_message:true,reply_to_message:{message_id:82,forum_topic_created:{name:'hello',is_name_implicit:true}}}));
+ assert.equal(f.ledger.thread(82).slug,'');
+});
+
 test('long names give buttons Telegram accepts',async t=>{
  const f=await fixture(t,{topics:true});f.select('assistant');
  f.c.v2.slugs=async()=>['маркетинг-и-продажи-новых-продукт','日本語のトピックとてもながいなまえ'];
