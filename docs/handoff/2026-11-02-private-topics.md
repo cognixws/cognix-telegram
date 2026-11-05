@@ -35,4 +35,5 @@ Live, CTO: a tap on `#jingle` with row 2017 deleted forgot it and opened chat to
 
 ## 0.4.6 — a chat topic Telegram made without confirming it (2026-11-04)
 The Bot API has no call that lists a chat's topics, so a `createForumTopic` whose answer was lost cannot be looked up. `openTopic` remembers it (`topic_unconfirmed:<assistant>:<slug>` in metadata, cleared on unpair): the next tap makes nothing and says to look for the topic in the chat; the tap after that makes one. A refusal (400) is not remembered. A message in a chat topic the ledger does not know, whose root carries an explicit name, adopts it for the chosen Assistant by that name and clears the marker. Test `a chat topic Telegram made without confirming it is not made twice`; both new branches mutation-checked (each mutant fails); npm test 80 pass.
-Not measured live: losing Telegram's answer cannot be provoked on the owner's bot. Publication and install wait for the owner's go.
+Not measured live: losing Telegram's answer cannot be provoked on the owner's bot.
+`6c40ba9`, pushed with the owner's go (2026-11-05), installed 0.4.5 → 0.4.6, digest prefix d655e53369ed2702, connected and paired (var/qa/telegram-topics/install-receipt-0.4.6.json). The bot token was never read.
