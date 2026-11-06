@@ -1,5 +1,5 @@
 # 2026-10-15 — live-acceptance: record real Telegram and managed Pi round trips
-Owner-authorized development acceptance on HTTPS localhost8445; publication/install had already been authorized and completed at https://github.com/cognixws/picode-telegram.
+Owner-authorized development acceptance on HTTPS localhost8445; publication/install had already been authorized and completed at https://github.com/cognixws/cognix-telegram.
 Installed adapter 0.1.3/code7a5627e, digest 2366c784d96d39841c88e36974e74ce6cf5002b5ac9f11695b3f73b8e24f4792; full_text true. The adapter's 47 tests PASS; this docs session ran no new gates.
 Real managed Pi channels-qa-dev-8bfabe used zai/glm-5.3-flash and existing Inbox/Messages tools; V2 channels tools remain absent/default-off.
 Receipt: PiCode root var/qa/channels-live-dev/receipt.json, 2026-10-15T14:18:14Z; all 13 live checks PASS, no secret or pairing code read.
