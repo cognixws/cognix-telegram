@@ -34,7 +34,7 @@ enabled inbound Assistant conversations. That planning checkpoint included no V2
 Owner-authorized live receipt (2026-10-15): development HTTPS localhost8445,
 extension 0.1.3/code `7a5627e`, installed digest
 `2366c784d96d39841c88e36974e74ce6cf5002b5ac9f11695b3f73b8e24f4792`,
-from the already owner-authorized public https://github.com/cognixws/picode-telegram.
+from the already owner-authorized public https://github.com/cognixws/cognix-telegram.
 Managed Pi `channels-qa-dev-8bfabe` used zai/glm-5.3-flash and existing Inbox/Messages;
 full_text was true. All 13 live checks PASS: two canonical Inbox answers,
 eight delivered Messages (four inbound/four agent replies), actual Reply preserving

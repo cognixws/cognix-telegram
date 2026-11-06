@@ -5,7 +5,7 @@ private Telegram chat. Agents keep using `ask_human`, `notify_human` and
 Messages. V2 adds default-off channel tools and tool-enabled
 Assistant conversations, with Telegram as the only provider.
 
-Published with owner authorization at [cognixws/picode-telegram](https://github.com/cognixws/picode-telegram).
+Published with owner authorization at [cognixws/cognix-telegram](https://github.com/cognixws/cognix-telegram).
 Version 0.3.1 implements the API-4 protocol-2 adapter. The accepted V1 live
 receipt below remains historical; real V2 acceptance requires the matching core
 deployment. The owner accepted V1 on 2026-10-15 with retained validation debt.
